@@ -135,10 +135,8 @@ def main():
                                     Club together similar skills to provide a more holistic view of the candidate's capabilities (e.g., Ansible and Chef, C++ and Java).
                                     For each required skill Calculate the matching percentage.
                                     Identify any skills that don't match and list them.
-                                    Offer constructive recommendations for the candidate to improve their skills and better align with the job requirements.
-                                    At last put the information in this format with percentages
-                                    Matching Skills:
-                                    Non Matching Skills: 
+                                    Offer constructive recommendations for the candidate to improve their skills and better align with the job requirements. and no summary of work is needed.
+                            
             
                                     Here is the resume:
 
