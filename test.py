@@ -155,23 +155,9 @@ def main():
                                     }
                                     )
 
-                            crew = Crew(agents=[Problem_Definition_Agent], tasks=[task_define_problem], verbose=2)
+                            crew = Crew(agents=[Problem_Definition_Agent], tasks=[task_define_problem])
                             result = crew.kickoff()
                             st.write(result)
-
-                            """
-                            # Process result for tabular display
-                            output_string = result['output']
-                            matching_skills = output_string.get('Matching Skills', {})
-                            non_matching_skills = output_string.get('Non Matching Skills', {})
-
-                            matching_data = [{'Skill': skill, 'Matching Percentage': percentage, 'Remarks': 'Matching'} for skill, percentage in matching_skills.items()]
-                            non_matching_data = [{'Skill': skill, 'Matching Percentage': percentage, 'Remarks': 'Non-Matching'} for skill, percentage in non_matching_skills.items()]
-
-                            result_df = pd.DataFrame(matching_data + non_matching_data)
-
-                            st.write(result_df)
-                            """
 
 if __name__ == "__main__":
     main()
