@@ -134,7 +134,6 @@ def main():
                                                     Provide a percentage score indicating the overall match between the two summaries.
                                                     Club together similar skills to provide a more holistic view of the candidate's capabilities (e.g., Ansible and Chef, C++ and Java).
                                                     For each required skill mentioned in the job description, calculate the matching percentage based on the skills present in the candidate's resume.
-                                                    Identify any skills from the resume that don't match the job requirements and list them.
                                                     Offer constructive recommendations for the candidate to improve their skills and better align with the job requirements.
                             
             
