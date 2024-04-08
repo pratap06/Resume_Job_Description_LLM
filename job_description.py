@@ -151,8 +151,8 @@ def main():
                                                         Recommendations for the candidate to enhance their skills and increase alignment with the job description."""
                                     )
                             table_task= Task(
-                                description="Using the output of task_define_problem task understand the information and put it in two tables one table of maching skills another of non-matching skills with the percentages and also the remark column in both the tables", 
-                                agent=Problem_Definition_Agent,expected_output= "two tables of maching and non matching skills and recommendations")
+                                description="Using the output of task_define_problem task understand the information and put it in one table of maching skills with the percentages and also the remark column in the tables", 
+                                agent=Problem_Definition_Agent,expected_output= "One table of matching skills and recommendations")
 
                             crew = Crew(agents=[Problem_Definition_Agent], tasks=[task_define_problem,table_task], verbose=2)
                             result = crew.kickoff()
