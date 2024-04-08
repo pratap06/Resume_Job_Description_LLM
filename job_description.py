@@ -8,7 +8,6 @@ from langchain_core.prompts import ChatPromptTemplate
 import pandas as pd
 import pdfplumber
 from bs4 import BeautifulSoup
-import json
 
 # Load environment variables
 load_dotenv()
@@ -116,10 +115,9 @@ def main():
                     st.write(job_description)
                     if(job_description=="Description Not Available"):
                         st.write("Cannot Compare as Job Description is not available")
-                       
                     else:
                         with st.spinner(text="Comparison In progress..."):
-                    # Agent and Task execution
+                            # Agent and Task execution
                             Problem_Definition_Agent = Agent(
                                     role='talent assessment analyst',
                                     goal="""Provide a comprehensive score for matching the candidate's resume summary with the job description summary. Identify the percentage of matching for each required skill and list the skills that don't match. Offer recommendations to the candidate to enhance their skills and align better with the job requirements.""",
@@ -147,15 +145,15 @@ def main():
                                     {job_sum}
                                     """.format(resume_sum=pdf_text, job_sum=job_description),
                                     agent=Problem_Definition_Agent,
-                                    expected_output="""Overall matching score between the resume summary and the job description summary. club similar skills together then provide Matching percentage for each required skill. List of skills that don't match the job requirements. Recommendations for the candidate to enhance their skills and increase alignment with the job description."""
+                                    expected_output="""Give the overall matching and non matching skills with percentages and remarks in separate tabular format"""
                                     )
+                            table_task= Task(
+                                description="Using the output of task_define_problem task understand the information and put it in two tables one table of maching skills another of non-matching skills with the percentages and also the remark column in both the tables", 
+                                agent=Problem_Definition_Agent,expected_output= "two tables of maching and non matching skills and recommendations")
 
-                            crew = Crew(agents=[Problem_Definition_Agent], tasks=[task_define_problem], verbose=2)
+                            crew = Crew(agents=[Problem_Definition_Agent], tasks=[task_define_problem,table_task], verbose=2)
                             result = crew.kickoff()
                             st.write(result)
-    
-        
-
     
 
 if __name__ == "__main__":

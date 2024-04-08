@@ -8,7 +8,6 @@ from langchain_core.prompts import ChatPromptTemplate
 import pandas as pd
 import pdfplumber
 from bs4 import BeautifulSoup
-import json
 
 # Load environment variables
 load_dotenv()
@@ -130,12 +129,12 @@ def main():
 
                             task_define_problem = Task(
                                     description="""Review the candidate's resume summary and the job description summary.
-                                                    Assess the level of match between the candidate's skills and the required skills for the job.
-                                                    Provide a percentage score indicating the overall match between the two summaries.
-                                                    Club together similar skills to provide a more holistic view of the candidate's capabilities (e.g., Ansible and Chef, C++ and Java).
-                                                    For each required skill mentioned in the job description, calculate the matching percentage based on the skills present in the candidate's resume.
-                                                    Offer constructive recommendations for the candidate to improve their skills and better align with the job requirements.
-                            
+                                    Assess the level of match between the candidate's skills and the required skills for the job.
+                                    Provide a percentage score indicating the overall match between the two summaries.
+                                    Club together similar skills to provide a more holistic view of the candidate's capabilities (e.g., Ansible and Chef, C++ and Java).
+                                    For each required skill Calculate the matching percentage.
+                                    Identify any skills that don't match and list them.
+                                    Offer constructive recommendations for the candidate to improve their skills and better align with the job requirements.
             
                                     Here is the resume:
 
@@ -146,15 +145,16 @@ def main():
                                     {job_sum}
                                     """.format(resume_sum=pdf_text, job_sum=job_description),
                                     agent=Problem_Definition_Agent,
-                                    expected_output={
-                                        "Matching Skills": {},
-                                        "Non Matching Skills": {}
-                                    }
+                                    expected_output="""Give the overall matching and non matching skills with percentages and remarks in separate tabular format"""
                                     )
+                            table_task= Task(
+                                description="Using the output of task_define_problem task understand the information and put it in two tables one table of maching skills another of non-matching skills with the percentages and also the remark column in both the tables", 
+                                agent=Problem_Definition_Agent,expected_output= "two tables of maching and non matching skills and recommendations")
 
-                            crew = Crew(agents=[Problem_Definition_Agent], tasks=[task_define_problem])
+                            crew = Crew(agents=[Problem_Definition_Agent], tasks=[task_define_problem,table_task], verbose=2)
                             result = crew.kickoff()
                             st.write(result)
+    
 
 if __name__ == "__main__":
     main()

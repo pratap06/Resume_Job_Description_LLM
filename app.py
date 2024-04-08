@@ -111,6 +111,7 @@ Matching percentage for each required skill.
 List of skills that don't match the job requirements.
 Recommendations for the candidate to enhance their skills and increase alignment with the job description."""
         )
+table_task= Task(description="""Using the output of task_define_problem task understand the information and put it in two tables one table of maching skills another of non-matching skills with the percentages and remarks in both the tables"""")
 crew = Crew(
             agents=[Problem_Definition_Agent], #, Summarization_Agent],
             tasks=[task_define_problem], #, task_summarize],
