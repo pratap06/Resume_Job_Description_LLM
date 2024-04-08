@@ -8,6 +8,7 @@ from langchain_core.prompts import ChatPromptTemplate
 import pandas as pd
 import pdfplumber
 from bs4 import BeautifulSoup
+import hashlib
 
 # Load environment variables
 load_dotenv()
@@ -29,6 +30,13 @@ def extract_job_location(soup):
         return job_location.text.strip()
     else:
         return "Location Not Available"
+    
+def extract_job_title(soup):
+    job_title = soup.title
+    if job_title:
+        return job_title.text.strip()
+    else:
+        return "Job Title Not Available"
 
 # Function to extract job description from HTML
 def extract_job_description(soup):
@@ -56,11 +64,37 @@ def extract_job_criteria(soup):
         job_criteria[subheader] = text
     return job_criteria
 
+class SessionState:
+    def __init__(self, **kwargs):
+        self.hash_funcs = {"md5": hashlib.md5, "sha1": hashlib.sha1}
+        self.cache = {}
+        self.update(kwargs)
+
+    def update(self, new_state):
+        self.cache.update(new_state)
+
+    def clear(self):
+        self.cache.clear()
+
+    def _get_cache_key(self, prefix=""):
+        key = st.session_state.session_id
+        if prefix:
+            key = f"{prefix}_{key}"
+        return key
+
+    def __getitem__(self, item):
+        return self.cache.get(self._get_cache_key(item), None)
+
+    def __setitem__(self, item, value):
+        self.cache[self._get_cache_key(item)] = value
+
 def main():
     st.set_page_config(page_title="LinkedIn Job Details Extractor", page_icon=":briefcase:", layout="wide", initial_sidebar_state="expanded")
 
     st.title("LinkedIn Job Details Extractor")
     st.subheader("Upload PDF file and enter LinkedIn job URL")
+
+    session_state = SessionState()
 
     extract_button = False
     compare_button = False
@@ -69,91 +103,102 @@ def main():
     uploaded_file = st.file_uploader("Upload PDF file", type=["pdf"])
     if uploaded_file is not None:
         # Read and extract text from the uploaded PDF file
-        pdf_text = extract_text_from_pdf(uploaded_file)
+        session_state.resume_text = extract_text_from_pdf(uploaded_file)
         # Display the extracted text
         st.success("Resume Details Extracted")
 
-        # URL input field
-        url = st.text_input("Enter LinkedIn job URL:")
-        # Button for triggering extraction
-        extract_button = st.button("Extract Details")
-        if extract_button:
-            if url:
-                # Fetch webpage content
-                response = requests.get(url)
-                soup = BeautifulSoup(response.text, 'html.parser')
+    # URL input field
+    url = st.text_input("Enter LinkedIn job URL:")
+    # Button for triggering extraction
+    extract_button = st.button("Extract Details")
+    if extract_button:
+        if url:
+            # Fetch webpage content
+            response = requests.get(url)
+            soup = BeautifulSoup(response.text, 'html.parser')
 
-                # Extract job location
-                job_location = extract_job_location(soup)
+            # Extract job title
+            job_title = extract_job_title(soup)
 
-                # Extract job description
-                job_description = extract_job_description(soup)
+            # Extract job location
+            job_location = extract_job_location(soup)
 
-                # Extract job criteria
-                job_criteria = extract_job_criteria(soup)
+            # Extract job description
+            job_description = extract_job_description(soup)
 
-                # Extract salary information
-                salary = extract_salary(soup)
+            # Extract job criteria
+            job_criteria = extract_job_criteria(soup)
 
-                # Display output in columns with wider job description area
-                col1, col2 = st.columns([1, 3])  # Adjusted the ratio to 1:3
+            # Extract salary information
+            salary = extract_salary(soup)
 
-                with col1:
-                    st.markdown("## Job Location:")
-                    st.write(job_location)
+            # Display output in columns with wider job description area
+            col1, col2 = st.columns([1, 3])  # Adjusted the ratio to 1:3
 
-                    st.markdown("## Salary:")
-                    st.write(salary)
+            with col1:
+                
+                st.markdown("## Job Title:")
+                st.write(job_title)
 
-                    # Display job criteria
-                    st.markdown("## Job Criteria:")
-                    for key, value in job_criteria.items():
-                        st.write(f"**{key}:** {value}")
+                st.markdown("## Job Location:")
+                st.write(job_location)
 
-                with col2:
-                    st.markdown("## Job Description:")
-                    st.write(job_description)
-                    if(job_description=="Description Not Available"):
-                        st.write("Cannot Compare as Job Description is not available")
-                    else:
-                        with st.spinner(text="Comparison In progress..."):
-                            # Agent and Task execution
-                            Problem_Definition_Agent = Agent(
-                                    role='talent assessment analyst',
-                                    goal="""Provide a comprehensive score for matching the candidate's resume summary with the job description summary. Identify the percentage of matching for each required skill and list the skills that don't match. Offer recommendations to the candidate to enhance their skills and align better with the job requirements.""",
-                                    backstory="""As an expert in talent assessment, your task is to evaluate the candidate's resume summary with respect to skills in relation to the provided job description. You aim to provide actionable insights to the candidate to ensure the best fit for the role.""",
-                                    verbose=False,
-                                    allow_delegation=False,
-                                    llm=llm,
-                                 )
+                st.markdown("## Salary:")
+                st.write(salary)
 
-                            task_define_problem = Task(
-                                    description="""Review the candidate's resume summary and the job description summary additionally identify the skills in both.
-                                    Assess the level of match between the candidate's skills and the required skills for the job.
-                                    Provide a percentage score indicating the overall match between the two summaries.
-                                    Club together similar skills to provide a more holistic view of the candidate's capabilities (e.g., Ansible and Chef, C++ and Java).
-                                    For each required skill Calculate the matching percentage.
-                                    Identify any skills that don't match and list them.
-                                    Offer constructive recommendations for the candidate to improve their skills and better align with the job requirements.
-            
-                                    Here is the resume:
+                # Display job criteria
+                st.markdown("## Job Criteria:")
+                for key, value in job_criteria.items():
+                    st.write(f"**{key}:** {value}")
 
-                                    {resume_sum}
+            with col2:
+                st.markdown("## Job Description:")
+                st.write(job_description)
+                if(job_description=="Description Not Available"):
+                    st.write("Cannot Compare as Job Description is not available")
+                   
+                else:
+                    with st.spinner(text="Comparison In progress..."):
+                # Agent and Task execution
+                        Problem_Definition_Agent = Agent(
+                                role='talent assessment analyst',
+                                goal="""Provide a comprehensive score for matching the candidate's resume summary with the job description summary. Identify the percentage of matching for each required skill and list the skills that don't match. Offer recommendations to the candidate to enhance their skills and align better with the job requirements.""",
+                                backstory="""As an expert in talent assessment, your task is to evaluate the candidate's resume summary with respect to skills in relation to the provided job description. You aim to provide actionable insights to the candidate to ensure the best fit for the role.""",
+                                verbose=False,
+                                allow_delegation=False,
+                                llm=llm,
+                             )
 
-                                    Here is the job description:
+                        task_define_problem = Task(
+                                description="""Review the candidate's resume summary and the job description summary. Additionally, identify the skills in both.
+    Assess the level of match between the candidate's skills and the required skills for the job.
+    Provide a percentage score indicating the overall match between the two summaries.
+    Club together similar skills to provide a more holistic view of the candidate's capabilities (e.g., Ansible and Chef, C++ and Java).
+    For each required skill, calculate the matching percentage.
+    Identify any skills that don't match and list them.
+    Offer constructive recommendations for the candidate to improve their skills and better align with the job requirements.
 
-                                    {job_sum}
-                                    """.format(resume_sum=pdf_text, job_sum=job_description),
-                                    agent=Problem_Definition_Agent,
-                                    expected_output="""Give the overall matching and non matching skills with percentages and remarks in separate tabular format"""
-                                    )
-                            table_task= Task(
-                                description="Using the output of task_define_problem task understand the information and put it in two tables one table of maching skills another of non-matching skills with the percentages and also the remark column in both the tables", 
-                                agent=Problem_Definition_Agent,expected_output= "two tables of maching and non matching skills and recommendations")
+                                Here is the resume:
 
-                            crew = Crew(agents=[Problem_Definition_Agent], tasks=[task_define_problem,table_task], verbose=2)
-                            result = crew.kickoff()
-                            st.write(result)
+                                {resume_sum}
+
+                                Here is the job description:
+
+                                {job_sum}
+                                """.format(resume_sum=session_state.resume_text, job_sum=job_description),
+                                agent=Problem_Definition_Agent,
+                                expected_output="""Give the overall matching and non-matching skills with percentages and remarks in separate tabular format."""
+                                )
+                        table_task= Task(
+                            description="""Using the output of the task_define_problem task, understand the information and put it in two tables: 
+                                            one table of matching skills and another of non-matching skills with the overall percentages and also the remark column in both the tables.""", 
+                            agent=Problem_Definition_Agent,expected_output= """Provide two tables: one containing matching skills and their percentages with remarks, 
+                                                        and another containing non-matching skills with remarks. Additionally, include recommendations for the candidate.""")
+
+                        crew = Crew(agents=[Problem_Definition_Agent], tasks=[task_define_problem,table_task], verbose=2)
+                        result = crew.kickoff()
+                        st.write(result)
+                        st.button("Extract Another Job")
     
 
 if __name__ == "__main__":
