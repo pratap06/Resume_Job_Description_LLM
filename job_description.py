@@ -162,7 +162,7 @@ def main():
                 # Agent and Task execution
                         Problem_Definition_Agent = Agent(
                                 role='talent assessment analyst',
-                                goal="""Provide a comprehensive score for matching the candidate's resume summary with the job description summary. Identify the percentage of matching for each required skill and list the skills that don't match. Offer recommendations to the candidate to enhance their skills and align better with the job requirements.""",
+                                goal="""Provide a comprehensive score for matching the job description summary with candidate's resume summary. Identify the percentage of matching for each required skill and list the skills that don't match. Offer recommendations to the candidate to enhance their skills and align better with the job requirements.""",
                                 backstory="""As an expert in talent assessment, your task is to evaluate the candidate's resume summary with respect to skills in relation to the provided job description. You aim to provide actionable insights to the candidate to ensure the best fit for the role.""",
                                 verbose=False,
                                 allow_delegation=False,
@@ -170,7 +170,7 @@ def main():
                              )
 
                         task_define_problem = Task(
-                                description="""Review the candidate's resume summary and the job description summary. Additionally, identify the skills in both.
+                                description="""Compare the skills mentioned in the job description with those present in the candidate's resume.
     Assess the level of match between the candidate's skills and the required skills for the job.
     Provide a percentage score indicating the overall match between the two summaries.
     Club together similar skills to provide a more holistic view of the candidate's capabilities (e.g., Ansible and Chef, C++ and Java).
@@ -189,13 +189,24 @@ def main():
                                 agent=Problem_Definition_Agent,
                                 expected_output="""Give the overall matching and non-matching skills with percentages and remarks in separate tabular format."""
                                 )
+                        
+                        verification_task = Task(
+                                    description="""Verify the correctness of the output provided by the task_define_problem task and provide a comprehensive score for matching the job description summary with the candidate's resume summary. Identify the percentage of matching for each required skill and list the skills that don't match. Offer recommendations to the candidate to enhance their skills and align better with the job requirements.""",
+                                    agent=Problem_Definition_Agent,
+                                    expected_output="""Provide a summary of the verification results, similar to the output of task_define_problem:
+                                    - Overall Matching: Overall matching score between the job description summary and the candidate's resume summary.
+                                    - Matching Skills: List of skills and their matching percentages.
+                                    - Non-matching Skills: List of skills that don't match.
+                                    - Recommendations: Recommendations for the candidate to enhance their skills and align better with the job requirements."""
+)
+
                         table_task= Task(
                             description="""Using the output of the task_define_problem task, understand the information and put it in two tables: 
                                             one table of matching skills and another of non-matching skills with the overall percentages and also the remark column in both the tables.""", 
                             agent=Problem_Definition_Agent,expected_output= """Provide two tables: one containing matching skills and their percentages with remarks, 
                                                         and another containing non-matching skills with remarks. Additionally, include recommendations for the candidate.""")
 
-                        crew = Crew(agents=[Problem_Definition_Agent], tasks=[task_define_problem,table_task], verbose=2)
+                        crew = Crew(agents=[Problem_Definition_Agent], tasks=[task_define_problem,verification_task,table_task], verbose=2)
                         result = crew.kickoff()
                         st.write(result)
                         st.button("Extract Another Job")
