@@ -8,7 +8,7 @@ from langchain_core.prompts import ChatPromptTemplate
 import pandas as pd
 import pdfplumber
 from bs4 import BeautifulSoup
-import hashlib
+
 import json
 import re
 import matplotlib.pyplot as plt
@@ -88,14 +88,6 @@ def combine_dataframes(df_overall, df_matching_hard_skills, df_matching_soft_ski
     df = pd.concat([df_overall, df_matching_hard_skills, df_matching_soft_skills, df_non_matching_hard_skills, df_non_matching_soft_skills])
     return df
 
-# Function to download DataFrame as CSV
-def download_csv(df):
-    csv = df.to_csv(index=False).encode()
-    b64 = base64.b64encode(csv).decode()
-    href = f'<a href="data:file/csv;base64,{b64}" download="matching_skills.csv">Download CSV</a>'
-    st.markdown(href, unsafe_allow_html=True)
-
-
 def plot_horizontal_bar(df, title):
     # Set Seaborn style
     sns.set_theme(style="whitegrid")
@@ -172,29 +164,6 @@ def extract_job_criteria(soup):
         job_criteria[subheader] = text
     return job_criteria
 
-class SessionState:
-    def __init__(self, **kwargs):
-        self.hash_funcs = {"md5": hashlib.md5, "sha1": hashlib.sha1}
-        self.cache = {}
-        self.update(kwargs)
-
-    def update(self, new_state):
-        self.cache.update(new_state)
-
-    def clear(self):
-        self.cache.clear()
-
-    def _get_cache_key(self, prefix=""):
-        key = st.session_state.session_id
-        if prefix:
-            key = f"{prefix}_{key}"
-        return key
-
-    def __getitem__(self, item):
-        return self.cache.get(self._get_cache_key(item), None)
-
-    def __setitem__(self, item, value):
-        self.cache[self._get_cache_key(item)] = value
 
 def main():
     st.set_page_config(page_title="LinkedIn Job Details Extractor", page_icon=":briefcase:", layout="wide", initial_sidebar_state="expanded")
@@ -202,7 +171,7 @@ def main():
     st.title("LinkedIn Job Details Extractor")
     st.subheader("Upload PDF file and enter LinkedIn job URL")
 
-    session_state = SessionState()
+    
 
     extract_button = False
 
@@ -210,7 +179,7 @@ def main():
     uploaded_file = st.file_uploader("Upload PDF file", type=["pdf"])
     if uploaded_file is not None:
         # Read and extract text from the uploaded PDF file
-        session_state.resume_text = extract_text_from_pdf(uploaded_file)
+        resume_text = extract_text_from_pdf(uploaded_file)
         # Display the extracted text
         st.success("Resume Details Extracted")
 
@@ -277,10 +246,11 @@ def main():
                         )
 
                         task_define_problem = Task(
-                        description='''Compare the hard skills (technical skills) and soft skills mentioned in the job description with those present in the candidate's resume.
+                        description='''Find hard skills (technical skills) and soft skills then Compare the hard skills (technical skills) and soft skills mentioned in the job description with those present in the candidate's resume.
                                         Assess the level of match between the candidate's skills and the required skills for the job.
-                                        For each required hard skill and soft skill, provide a matching score on a scale of 0 to 5 based on how well the skill is covered in the candidate's resume with remark for each which tells where exactly it matched with job description.
+                                        For each required hard skill and soft skill, provide a matching score on a scale of 0 to 10 based on how well the skill is covered in the candidate's resume with remark for each which tells where exactly it matched with job description.
                                         Identify any skills (both hard and soft) that don't match and list them with remark for each which tells why it didn't match with job description.
+                                        Find Overall match on the scale of 0 to 10
                                         Offer constructive recommendations for the candidate to improve their hard skills and soft skills, and better align with the job requirements.
 
                                         Here is the resume:
@@ -297,7 +267,7 @@ def main():
                                         
                                         {output}
                                     
-                                        '''.format(resume_sum=session_state.resume_text, job_sum=job_description, output=output_format),
+                                        '''.format(resume_sum=resume_text, job_sum=job_description, output=output_format),
                                             agent=Problem_Agent,
                                             expected_output={output_format}
                                         
