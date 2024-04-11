@@ -161,52 +161,74 @@ def main():
                     with st.spinner(text="Comparison In progress..."):
                 # Agent and Task execution
                         Problem_Definition_Agent = Agent(
-                                role='talent assessment analyst',
-                                goal="""Provide a comprehensive score for matching the job description summary with candidate's resume summary. Identify the percentage of matching for each required skill and list the skills that don't match. Offer recommendations to the candidate to enhance their skills and align better with the job requirements.""",
-                                backstory="""As an expert in talent assessment, your task is to evaluate the candidate's resume summary with respect to skills in relation to the provided job description. You aim to provide actionable insights to the candidate to ensure the best fit for the role.""",
-                                verbose=False,
-                                allow_delegation=False,
-                                llm=llm,
-                             )
+                        role='talent assessment analyst',
+                        goal="""Provide a comprehensive score for matching the job description summary with the candidate's resume summary. Identify the matching scores for each required hard skill (technical skills) and soft skill, and list the skills that don't match. Offer recommendations to the candidate to enhance their hard skills and soft skills, and align better with the job requirements.""",
+                        backstory="""As an expert in talent assessment, your task is to evaluate the candidate's resume summary with respect to both hard skills (technical skills) and soft skills in relation to the provided job description. You aim to provide actionable insights to the candidate to ensure the best fit for the role.""",
+                        verbose=False,
+                        allow_delegation=False,
+                        llm=llm,
+                        )
 
                         task_define_problem = Task(
-                                description="""Compare the skills mentioned in the job description with those present in the candidate's resume.
-    Assess the level of match between the candidate's skills and the required skills for the job.
-    Provide a percentage score indicating the overall match between the two summaries.
-    Club together similar skills to provide a more holistic view of the candidate's capabilities (e.g., Ansible and Chef, C++ and Java).
-    For each required skill, calculate the matching percentage.
-    Identify any skills that don't match and list them.
-    Offer constructive recommendations for the candidate to improve their skills and better align with the job requirements.
+                        description="""Compare the hard skills (technical skills) and soft skills mentioned in the job description with those present in the candidate's resume.
+                                        Assess the level of match between the candidate's skills and the required skills for the job.
+                                        For each required hard skill and soft skill, provide a matching score on a scale of 0 to 5 based on how well the skill is covered in the candidate's resume.
+                                        Identify any skills (both hard and soft) that don't match and list them.
+                                        Offer constructive recommendations for the candidate to improve their hard skills and soft skills, and better align with the job requirements.
 
-                                Here is the resume:
+                                        Here is the resume:
 
-                                {resume_sum}
+                                        {resume_sum}
 
-                                Here is the job description:
+                                        Here is the job description:
 
-                                {job_sum}
-                                """.format(resume_sum=session_state.resume_text, job_sum=job_description),
-                                agent=Problem_Definition_Agent,
-                                expected_output="""Give the overall matching and non-matching skills with percentages and remarks in separate tabular format."""
-                                )
-                        
+                                        {job_sum}
+                                        """.format(resume_sum=session_state.resume_text, job_sum=job_description),
+                                            agent=Problem_Definition_Agent,
+                                            expected_output="""Give the matching scores for hard skills and soft skills using the following format:
+                                                                Hard Skills Matching:
+                                                                - Skill 1 (Matching Score: x/5)
+                                                                - Skill 2 (Matching Score: y/5)
+                                                                ...
+                                                                Overall Hard Skills Matching Score: z/5
+
+                                                                Soft Skills Matching:
+                                                                - Skill 1 (Matching Score: a/5)
+                                                                - Skill 2 (Matching Score: b/5)
+                                                                ...
+                                                                Overall Soft Skills Matching Score:
+                                                            """
+                                            )
+
                         verification_task = Task(
-                                    description="""Verify the correctness of the output provided by the task_define_problem task and provide a comprehensive score for matching the job description summary with the candidate's resume summary. Identify the percentage of matching for each required skill and list the skills that don't match. Offer recommendations to the candidate to enhance their skills and align better with the job requirements.""",
-                                    agent=Problem_Definition_Agent,
-                                    expected_output="""Provide a summary of the verification results, similar to the output of task_define_problem:
-                                    - Overall Matching: Overall matching score between the job description summary and the candidate's resume summary.
-                                    - Matching Skills: List of skills and their matching percentages.
-                                    - Non-matching Skills: List of skills that don't match.
-                                    - Recommendations: Recommendations for the candidate to enhance their skills and align better with the job requirements."""
-)
+                        description="""Verify the correctness of the output provided by the task_define_problem task and provide a comprehensive score for matching the job description summary with the candidate's resume summary. Identify the matching scores for each required hard skill (technical skill) and soft skill, and list the skills that don't match. Offer recommendations to the candidate to enhance their hard skills and soft skills, and align better with the job requirements.""",
+                        agent=Problem_Definition_Agent,
+                        expected_output="""Provide a summary of the verification results, similar to the output of task_define_problem:
+                        - Overall Matching: Overall matching score between the job description summary and the candidate's resume summary.
+                        - Matching Hard Skills: List of hard skills (technical skills) and their matching scores.
+                        - Non-matching Hard Skills: List of hard skills that don't match.
+                        - Matching Soft Skills: List of soft skills and their matching scores.
+                        - Non-matching Soft Skills: List of soft skills that don't match.
+                        - Recommendations: Recommendations for the candidate to enhance their hard skills and soft skills, and align better with the job requirements."""
+                        )
 
-                        table_task= Task(
-                            description="""Using the output of the task_define_problem task, understand the information and put it in two tables: 
-                                            one table of matching skills and another of non-matching skills with the overall percentages and also the remark column in both the tables.""", 
-                            agent=Problem_Definition_Agent,expected_output= """Provide two tables: one containing matching skills and their percentages with remarks, 
-                                                        and another containing non-matching skills with remarks. Additionally, include recommendations for the candidate.""")
+                        table_task = Task(
+                        description="""Using the output from the previous tasks, understand the information and create the following tables:
+                                        1. Table of matching hard skills (technical skills) and their matching scores with remarks.
+                                        2. Table of non-matching hard skills with remarks.
+                                        3. Table of matching soft skills and their matching scores with remarks.
+                                        4. Table of non-matching soft skills with remarks.
+                                        Additionally, include the recommendations for the candidate to improve their hard skills and soft skills.""",
+                        agent=Problem_Definition_Agent,
+                        expected_output="""Provide four tables:
+                                            1. Table containing matching hard skills and their matching scores with remarks.
+                                            2. Table containing non-matching hard skills with remarks.
+                                            3. Table containing matching soft skills and their matching scores with remarks.
+                                            4. Table containing non-matching soft skills with remarks.
+                                            Additionally, include recommendations for the candidate."""
+                                    )
 
-                        crew = Crew(agents=[Problem_Definition_Agent], tasks=[task_define_problem,verification_task,table_task], verbose=2)
+                        crew = Crew(agents=[Problem_Definition_Agent], tasks=[task_define_problem, verification_task,table_task], verbose=2)
                         result = crew.kickoff()
                         st.write(result)
                         st.button("Extract Another Job")

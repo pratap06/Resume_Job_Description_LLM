@@ -9,11 +9,119 @@ import pandas as pd
 import pdfplumber
 from bs4 import BeautifulSoup
 import hashlib
+import json
+import re
+import matplotlib.pyplot as plt
+import seaborn as sns
+import base64
 
 # Load environment variables
 load_dotenv()
 groq_api_key = os.getenv('GROQ_API_KEY')
 llm = ChatGroq(groq_api_key=groq_api_key, model_name='mixtral-8x7b-32768', temperature=0)
+
+
+# Define the JSON format as a string
+output_format = '''{
+    "Overall_Matching": {
+        "Score": "Overall matching score",
+        "Remark": "Overall matching remarks"
+    },
+    "Matching_Hard_Skills": [
+        {
+            "Skill": "Skill1",
+            "Matching_Score": "Matching score",
+            "Remark": "Matching remarks"
+        },
+        {
+            "Skill": "Skill2",
+            "Matching_Score": "Matching score",
+            "Remark": "Matching remarks"
+        },
+        ...
+    ],
+    "Non_matching_Hard_Skills": [
+        {
+            "Skill": "Skill1",
+            "Matching_Score": "Matching score",
+            "Remark": "Matching remarks"
+        },
+        {
+            "Skill": "Skill2",
+            "Matching_Score": "Matching score",
+            "Remark": "Matching remarks"
+        },
+        ...
+    ],
+    "Matching_Soft_Skills": [
+        {
+            "Skill": "Skill1",
+            "Matching_Score": "Matching score",
+            "Remark": "Matching remarks"
+        },
+        {
+            "Skill": "Skill2",
+            "Matching_Score": "Matching score",
+            "Remark": "Matching remarks"
+        },
+        ...
+    ],
+    "Non_matching_Soft_Skills": [
+        {
+            "Skill": "Skill1",
+            "Matching_Score": "Matching score",
+            "Remark": "Matching remarks"
+        },
+        {
+            "Skill": "Skill2",
+            "Matching_Score": "Matching score",
+            "Remark": "Matching remarks"
+        },
+        ...
+    ],
+    "Recommendations": "Provide recommendations for improvement."
+}'''
+
+# Combine all DataFrames into a single DataFrame
+def combine_dataframes(df_overall, df_matching_hard_skills, df_matching_soft_skills, df_non_matching_hard_skills, df_non_matching_soft_skills):
+    # Merge DataFrames on Skill column
+    df = pd.concat([df_overall, df_matching_hard_skills, df_matching_soft_skills, df_non_matching_hard_skills, df_non_matching_soft_skills])
+    return df
+
+# Function to download DataFrame as CSV
+def download_csv(df):
+    csv = df.to_csv(index=False).encode()
+    b64 = base64.b64encode(csv).decode()
+    href = f'<a href="data:file/csv;base64,{b64}" download="matching_skills.csv">Download CSV</a>'
+    st.markdown(href, unsafe_allow_html=True)
+
+
+def plot_horizontal_bar(df, title):
+    # Set Seaborn style
+    sns.set_theme(style="whitegrid")
+
+    # Initialize the matplotlib figure
+    f, ax = plt.subplots(figsize=(10, 6))
+
+    # Convert Matching_Score to integer
+    df['Matching_Score'] = df['Matching_Score'].astype(int)
+     # Sort the DataFrame by "Matching_Score" column in descending order
+    df = df.sort_values(by="Matching_Score", ascending=False)
+
+    # Plot horizontal bar chart
+    sns.barplot(x="Matching_Score", y="Skill", data=df, palette="viridis", orient='h')
+
+    # Set x-axis limits
+    plt.xlim(0, 5)
+
+    # Add labels and title
+    plt.xlabel('Matching Score')
+    plt.ylabel('Skill')
+    plt.title(title)
+
+    # Show the plot
+    st.pyplot(f)
+
 
 # Function to extract text from PDF
 def extract_text_from_pdf(filename):
@@ -97,7 +205,6 @@ def main():
     session_state = SessionState()
 
     extract_button = False
-    compare_button = False
 
     # File uploader
     uploaded_file = st.file_uploader("Upload PDF file", type=["pdf"])
@@ -159,58 +266,129 @@ def main():
                    
                 else:
                     with st.spinner(text="Comparison In progress..."):
-                # Agent and Task execution
-                        Problem_Definition_Agent = Agent(
-                                role='talent assessment analyst',
-                                goal="""Provide a comprehensive score for matching the job description summary with candidate's resume summary. Identify the percentage of matching for each required skill and list the skills that don't match. Offer recommendations to the candidate to enhance their skills and align better with the job requirements.""",
-                                backstory="""As an expert in talent assessment, your task is to evaluate the candidate's resume summary with respect to skills in relation to the provided job description. You aim to provide actionable insights to the candidate to ensure the best fit for the role.""",
-                                verbose=False,
-                                allow_delegation=False,
-                                llm=llm,
-                             )
+                        # Agent and Task execution
+                        Problem_Agent = Agent(
+                            role='talent assessment analyst',
+                            goal="""Provide a comprehensive score for matching the job description summary with the candidate's resume summary. Identify the matching scores for each required hard skill (technical skills) and soft skill, and list the skills that don't match. Offer recommendations to the candidate to enhance their hard skills and soft skills, and align better with the job requirements.""",
+                            backstory="""As an expert in talent assessment, your task is to evaluate the candidate's resume summary with respect to both hard skills (technical skills) and soft skills in relation to the provided job description with the remarks for each. You aim to provide actionable insights to the candidate to ensure the best fit for the role.""",
+                            verbose=False,
+                            allow_delegation=False,
+                            llm=llm,
+                        )
 
                         task_define_problem = Task(
-                                description="""Compare the skills mentioned in the job description with those present in the candidate's resume.
-    Assess the level of match between the candidate's skills and the required skills for the job.
-    Provide a percentage score indicating the overall match between the two summaries.
-    Club together similar skills to provide a more holistic view of the candidate's capabilities (e.g., Ansible and Chef, C++ and Java).
-    For each required skill, calculate the matching percentage.
-    Identify any skills that don't match and list them.
-    Offer constructive recommendations for the candidate to improve their skills and better align with the job requirements.
+                        description='''Compare the hard skills (technical skills) and soft skills mentioned in the job description with those present in the candidate's resume.
+                                        Assess the level of match between the candidate's skills and the required skills for the job.
+                                        For each required hard skill and soft skill, provide a matching score on a scale of 0 to 5 based on how well the skill is covered in the candidate's resume with remark for each which tells where exactly it matched with job description.
+                                        Identify any skills (both hard and soft) that don't match and list them with remark for each which tells why it didn't match with job description.
+                                        Offer constructive recommendations for the candidate to improve their hard skills and soft skills, and better align with the job requirements.
 
-                                Here is the resume:
+                                        Here is the resume:
 
-                                {resume_sum}
+                                        {resume_sum}
 
-                                Here is the job description:
+                                        Here is the job description:
 
-                                {job_sum}
-                                """.format(resume_sum=session_state.resume_text, job_sum=job_description),
-                                agent=Problem_Definition_Agent,
-                                expected_output="""Give the overall matching and non-matching skills with percentages and remarks in separate tabular format."""
-                                )
-                        
-                        verification_task = Task(
-                                    description="""Verify the correctness of the output provided by the task_define_problem task and provide a comprehensive score for matching the job description summary with the candidate's resume summary. Identify the percentage of matching for each required skill and list the skills that don't match. Offer recommendations to the candidate to enhance their skills and align better with the job requirements.""",
-                                    agent=Problem_Definition_Agent,
-                                    expected_output="""Provide a summary of the verification results, similar to the output of task_define_problem:
-                                    - Overall Matching: Overall matching score between the job description summary and the candidate's resume summary.
-                                    - Matching Skills: List of skills and their matching percentages.
-                                    - Non-matching Skills: List of skills that don't match.
-                                    - Recommendations: Recommendations for the candidate to enhance their skills and align better with the job requirements."""
-)
+                                        {job_sum}
+                                         
+                                        and summary of your work is not required
 
-                        table_task= Task(
-                            description="""Using the output of the task_define_problem task, understand the information and put it in two tables: 
-                                            one table of matching skills and another of non-matching skills with the overall percentages and also the remark column in both the tables.""", 
-                            agent=Problem_Definition_Agent,expected_output= """Provide two tables: one containing matching skills and their percentages with remarks, 
-                                                        and another containing non-matching skills with remarks. Additionally, include recommendations for the candidate.""")
+                                        The output should be provided in JSON format, structured as follows:
+                                        
+                                        {output}
+                                    
+                                        '''.format(resume_sum=session_state.resume_text, job_sum=job_description, output=output_format),
+                                            agent=Problem_Agent,
+                                            expected_output={output_format}
+                                        
+                                        
+                                        )
 
-                        crew = Crew(agents=[Problem_Definition_Agent], tasks=[task_define_problem,verification_task,table_task], verbose=2)
+
+                        crew = Crew(agents=[Problem_Agent], tasks=[task_define_problem], verbose=2)
                         result = crew.kickoff()
-                        st.write(result)
-                        st.button("Extract Another Job")
+
+                        
+                        
+
+                        print(result)
+                        # Check if the string starts and ends with double quotes
+                        
+                        #parsed_data = json.loads(result)
+                        #print(parsed_data)
+                        # Split the text into individual JSON objects
+                        # Find the position of the first curly brace
+                        
+                        start_index = result.find('{')
+
+                        # Find the position of the last curly brace
+                        end_index = result.rfind('}')
+
+                        # Extract the JSON string
+                        json_data = result[start_index:end_index+1].strip()
+                        data = json.loads(json_data)
+                        #print(parsed_data)
+
+                        # Extract Overall Matching
+                        overall_matching_df = pd.DataFrame({
+                            "Score": [data["Overall_Matching"]["Score"]],
+                            "Remark": [data["Overall_Matching"]["Remark"]]
+                        })
+
+                        # Extract Matching Hard Skills
+                        matching_hard_skills_df = pd.DataFrame(data["Matching_Hard_Skills"])
+
+                        # Extract Matching Soft Skills
+                        matching_soft_skills_df = pd.DataFrame(data["Matching_Soft_Skills"])
+
+                        # Extract Non-matching Hard Skills
+                        non_matching_hard_skills_df = pd.DataFrame(data.get("Non_matching_Hard_Skills", []))
+
+                        # Extract Non-matching Soft Skills
+                        non_matching_soft_skills_df = pd.DataFrame(data.get("Non_matching_Soft_Skills", []))
+
+                        # Combine all DataFrames
+                        combined_df = combine_dataframes(overall_matching_df, matching_hard_skills_df, matching_soft_skills_df, non_matching_hard_skills_df, non_matching_soft_skills_df)
+
+                        combined_df = combined_df.reindex(columns=["Skill", "Matching_Score", "Remark", "Overall_Score"])
+
+                        # Print DataFrames
+                        
+                        st.write("Overall Score:")
+                        st.dataframe(overall_matching_df)
+                        
+                        st.write("Matching Hard Skills:")
+                        st.dataframe(matching_hard_skills_df)
+
+                        st.write("Matching Soft Skills:")
+                        st.dataframe(matching_soft_skills_df)
+                        
+                        st.write("Non Matching Hard Skills:")
+                        st.dataframe(non_matching_hard_skills_df)
+
+                        st.write("Non Matching Soft Skills:")
+                        st.dataframe(non_matching_soft_skills_df)
+
+                        # Convert DataFrame to CSV string
+                        csv = combined_df.to_csv(index=False)
+
+                        # Convert CSV string to bytes
+                        csv_bytes = csv.encode()
     
+   
+
+                        # Button to download CSV
+                        st.write("To Download the Report")
+                        st.download_button(
+                            label="Download CSV",
+                            data=csv_bytes,
+                            file_name='sample.csv',
+                            mime='text/csv'
+                            )
+
+                       
+                        
+                        
 
 if __name__ == "__main__":
     main()
