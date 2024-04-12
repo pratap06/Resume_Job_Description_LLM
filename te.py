@@ -1,15 +1,63 @@
-import requests 
-import random 
- 
-user_agents = [ 
-	'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36', 
-	'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36', 
-	'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36', 
-	'Mozilla/5.0 (iPhone; CPU iPhone OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148', 
-	'Mozilla/5.0 (Linux; Android 11; SM-G960U) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.72 Mobile Safari/537.36' 
-] 
-user_agent = random.choice(user_agents) 
-headers = {'User-Agent': user_agent} 
-response = requests.get('https://httpbin.org/headers', headers=headers) 
-print(response.json()['headers']['User-Agent']) 
-# Mozilla/5.0 (iPhone; CPU iPhone OS 12_2 like Mac OS X) ...
+import requests
+
+# use to parse html text
+from lxml.html import fromstring 
+from itertools import cycle
+import traceback
+
+
+def to_get_proxies():
+	# website to get free proxies
+	url = 'https://free-proxy-list.net/'
+
+	response = requests.get(url)
+
+	parser = fromstring(response.text)
+	# using a set to avoid duplicate IP entries.
+	proxies = set() 
+
+	for i in parser.xpath('//tbody/tr')[:10]:
+
+		# to check if the corresponding IP is of type HTTPS
+		if i.xpath('.//td[7][contains(text(),"yes")]'):
+
+			# Grabbing IP and corresponding PORT
+			proxy = ":".join([i.xpath('.//td[1]/text()')[0],
+							i.xpath('.//td[2]/text()')[0]])
+
+			proxies.add(proxy)
+		return proxies
+
+
+
+
+
+
+
+
+
+
+proxies = to_get_proxies()
+
+# to rotate through the list of IPs
+proxyPool = cycle(proxies) 
+
+# insert the url of the website you want to scrape.
+url = '' 
+
+for i in range(1, 11):
+
+	# Get a proxy from the pool
+	proxy = next(proxyPool)
+	print("Request #%d" % i)
+
+	try:
+		response = requests.get(url, proxies={"http": proxy, "https": proxy})
+		print(response.json())
+
+	except:
+	
+		# One has to try the entire process as most
+		# free proxies will get connection errors
+		# We will just skip retries.
+	print("Skipping. Connection error")
