@@ -231,7 +231,7 @@ def main():
                 st.markdown("## Job Description:")
                 st.write(job_description)
                 if(job_description=="Description Not Available"):
-                    st.write("Cannot Compare as Job Description is not available due to javascript block from LinkedIn")
+                    st.write("Cannot Compare as Job Description is not available due to javascript block from LinkedIn, Retry Again By Clicking Extract Details Button")
                    
                 else:
                     with st.spinner(text="Comparison In progress..."):
