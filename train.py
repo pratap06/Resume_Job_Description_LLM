@@ -262,7 +262,7 @@ def main():
                 st.markdown("## Job Description:")
                 st.write(job_description)
                 if(job_description=="Description Not Available"):
-                    st.write("Cannot Compare as Job Description is not available")
+                    st.write("Cannot Compare as Job Description is not available Again click on Extract Button")
                    
                 else:
                     with st.spinner(text="Comparison In progress..."):

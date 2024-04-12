@@ -305,6 +305,8 @@ def main():
                             "Remark": [data["Overall_Matching"]["Remark"]]
                         })
 
+                        recommendations = data["Recommendations"]
+
                         # Extract Matching Hard Skills
                         matching_hard_skills_df = pd.DataFrame(data["Matching_Hard_Skills"])
 
@@ -338,6 +340,9 @@ def main():
 
                         st.write("Non Matching Soft Skills:")
                         st.dataframe(non_matching_soft_skills_df)
+
+                        st.write("Recommendations:")
+                        st.write(recommendations)
 
                         # Convert DataFrame to CSV string
                         csv = combined_df.to_csv(index=False)
