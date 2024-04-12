@@ -8,7 +8,7 @@ from langchain_core.prompts import ChatPromptTemplate
 import pandas as pd
 import pdfplumber
 from bs4 import BeautifulSoup
-
+import datetime
 import json
 import re
 import matplotlib.pyplot as plt
@@ -350,14 +350,19 @@ def main():
                         # Convert CSV string to bytes
                         csv_bytes = csv.encode()
     
-   
+                        # Get current date and time
+                        current_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+                        
+                        # Construct dynamic file name with prefix and current date and time
+                        file_name = f"Resume_Job_Report_{current_datetime}_sample.csv"
 
                         # Button to download CSV
                         st.write("To Download the Report")
                         st.download_button(
                             label="Download CSV",
                             data=csv_bytes,
-                            file_name='sample.csv',
+                            file_name=file_name,
                             mime='text/csv'
                             )
 
