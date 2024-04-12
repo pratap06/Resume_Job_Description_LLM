@@ -355,7 +355,7 @@ def main():
 
                         
                         # Construct dynamic file name with prefix and current date and time
-                        file_name = f"Resume_Job_Report_{current_datetime}_sample.csv"
+                        file_name = f"Resume_Job_Report_{current_datetime}.csv"
 
                         # Button to download CSV
                         st.write("To Download the Report")
