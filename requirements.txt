@@ -9,4 +9,4 @@ pdfplumber
 matplotlib
 seaborn
 lxml
-
+torpy
